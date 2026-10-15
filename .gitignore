@@ -13,5 +13,9 @@ venv/
 # Generated datasets: tracked by DVC
 /data/
 
-# ClearML local configuration
-clearml.conf
+# ClearML local configuration and credentials
+/clearml.conf
+
+# Local ClearML dataset downloads
+/clearml_downloads/
+/clearml_verified/
