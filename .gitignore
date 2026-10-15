@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+.venv/
+venv/
+
+# DVC cache and local remote
+/.dvc/cache/
+/dvc-storage/
+
+# Generated datasets: tracked by DVC
+/data/
+
+# ClearML local configuration
+clearml.conf
