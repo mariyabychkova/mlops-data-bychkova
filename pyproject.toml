@@ -8,10 +8,14 @@ authors = [
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "dvc (==3.63.0)",
-    "clearml (==2.0.2)",
-    "scikit-learn (==1.7.2)",
-    "pandas (==2.3.3)",
-    "pathspec (==0.12.1)"
+    "clearml (>=1.16,<3)",
+    "scikit-learn (>=1.5,<2)",
+    "pandas (>=2.2,<4)",
+    "pathspec (==0.12.1)",
+    "mlflow (>=3.0,<4)",
+    "joblib (>=1.4,<2)",
+    "matplotlib (>=3.9,<4)",
+    "ipykernel (>=6.29,<8)"
 ]
 
 

@@ -1,0 +1,36 @@
+{
+    "experiment_name": "miit-mlops-practice-4-bychkova",
+    "experiment_id": "2",
+    "best_run_id": "8ff660097ec94ce2bae57bbe4070b5a6",
+    "best_model_name": "rf-depth-none",
+    "model_family": "random_forest",
+    "model_uri": "runs:/8ff660097ec94ce2bae57bbe4070b5a6/model",
+    "dataset_id": "5cdf5d16eb0e4b018a11019bffe5a139",
+    "dataset_sha256": "724d80b05e39c7a72fe7631de59583c764049137f9d7089b01b5460e212c75c0",
+    "run_status": "FINISHED",
+    "signature_present": true,
+    "predictions_match": true,
+    "validation_metrics": {
+        "accuracy": 0.9722222222222222,
+        "precision_weighted": 0.9747474747474748,
+        "recall_weighted": 0.9722222222222222,
+        "f1_weighted": 0.9723691945914168
+    },
+    "training_seconds": 0.06773091712966561,
+    "test_metrics": {
+        "accuracy": 0.9444444444444444,
+        "precision_weighted": 0.949106449106449,
+        "recall_weighted": 0.9444444444444444,
+        "f1_weighted": 0.9435246235246235
+    },
+    "checks": {
+        "run_finished": true,
+        "signature_present": true,
+        "predictions_match": true,
+        "required_params_present": true,
+        "required_metrics_present": true,
+        "test_metrics_present": true,
+        "required_tags_present": true
+    },
+    "all_checks_passed": true
+}

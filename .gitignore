@@ -19,3 +19,13 @@ venv/
 # Local ClearML dataset downloads
 /clearml_downloads/
 /clearml_verified/
+
+# MLflow local tracking
+/mlflow.db
+/mlruns/
+
+# Local ClearML datasets
+/clearml_practice_4/
+
+# Local artifacts
+/artifacts/
