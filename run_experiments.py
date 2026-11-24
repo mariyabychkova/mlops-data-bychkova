@@ -2,13 +2,13 @@ import argparse
 import hashlib
 import time
 from pathlib import Path
-
+import joblib
 import mlflow
 import mlflow.sklearn
 import pandas as pd
 import sklearn
 from mlflow.tracking import MlflowClient
-from clearml import Dataset
+from clearml import Dataset, Task, OutputModel
 from mlflow.models import infer_signature
 
 from sklearn.ensemble import RandomForestClassifier
@@ -525,6 +525,168 @@ def main():
             f"test_{name}": value
             for name, value in test_metrics.items()
         })
+
+    
+    # Получаем информацию о лучшем запуске MLflow
+    best_run_info = client.get_run(best_run_id)
+
+    # Создаём ClearML Task
+    CLEARML_PROJECT = "MIIT/MLOps/practice_4/bychkova"
+    CLEARML_TASK_NAME = "wine-best-model"
+
+    clearml_task = Task.init(
+        project_name=CLEARML_PROJECT,
+        task_name=CLEARML_TASK_NAME,
+        task_type=Task.TaskTypes.training,
+        reuse_last_task_id=False,
+    )
+
+    print("\nClearML Task создана")
+    print("Project:", CLEARML_PROJECT)
+    print("Task:", CLEARML_TASK_NAME)
+    print("Task ID:", clearml_task.id)
+
+    # Передаём параметры лучшей модели
+    clearml_params = {
+        "model_family": best_run_info.data.tags["model_family"],
+        "model_type": best_run_info.data.params["model_type"],
+        "random_state": RANDOM_STATE,
+        "dataset_id": args.dataset_id,
+        "dataset_sha256": actual_sha256,
+        "mlflow_experiment_id": experiment_id,
+        "mlflow_run_id": best_run_id,
+    }
+
+    # Добавляем параметры конкретной модели
+    if clearml_params["model_family"] == "random_forest":
+        clearml_params.update({
+            "n_estimators": int(best_run_info.data.params["n_estimators"]),
+            "max_depth": best_run_info.data.params["max_depth"],
+            "min_samples_split": int(
+                best_run_info.data.params["min_samples_split"]
+            ),
+        })
+    else:
+        clearml_params.update({
+            "C": float(best_run_info.data.params["C"]),
+            "solver": best_run_info.data.params["solver"],
+            "max_iter": int(best_run_info.data.params["max_iter"]),
+        })
+
+    clearml_task.connect(clearml_params)
+
+    print("Параметры переданы в ClearML.")
+
+    # Передаём метрики в ClearML
+    logger = clearml_task.get_logger()
+
+    # Validation metrics
+    for name in [
+        "accuracy",
+        "precision_weighted",
+        "recall_weighted",
+        "f1_weighted",
+    ]:
+        logger.report_scalar(
+            title="Validation metrics",
+            series=name,
+            value=float(best_run_info.data.metrics[name]),
+            iteration=0,
+        )
+
+    # Test metrics
+    for name, value in test_metrics.items():
+        logger.report_scalar(
+            title="Test metrics",
+            series=name,
+            value=float(value),
+            iteration=0,
+        )
+
+    # Training time
+    logger.report_scalar(
+        title="Training",
+        series="training_seconds",
+        value=float(best_run_info.data.metrics["training_seconds"]),
+        iteration=0,
+    )
+
+    print("Метрики переданы в ClearML.")
+
+    # Сохраняем таблицу сравнения экспериментов
+    comparison_path = Path("comparison.csv")
+
+    comparison_columns = [
+        "tags.mlflow.runName",
+        "tags.model_family",
+        "metrics.f1_weighted",
+        "metrics.accuracy",
+        "metrics.precision_weighted",
+        "metrics.recall_weighted",
+        "metrics.training_seconds",
+    ]
+
+    runs_df[comparison_columns].to_csv(
+        comparison_path,
+        index=False,
+        encoding="utf-8",
+    )
+
+    clearml_task.upload_artifact(
+        name="comparison_table",
+        artifact_object=str(comparison_path),
+    )
+
+    print("Таблица сравнения загружена в ClearML.")
+
+    # Сохраняем лучшую модель
+    model_path = Path("wine_best_model.joblib")
+
+    joblib.dump(loaded_model, model_path)
+
+    print("Модель сохранена:", model_path.resolve())
+
+    # Регистрируем модель в ClearML
+    output_model = OutputModel(
+        task=clearml_task,
+        name="wine-best-model",
+        framework="scikit-learn",
+        tags=["wine", "random-forest", "mlflow"],
+    )
+
+    output_model.update_weights(
+        weights_filename=str(model_path.resolve()),
+        auto_delete_file=False,
+    )
+
+    # Добавляем metadata модели
+    metadata = {
+        "framework": "scikit-learn",
+        "model_name": best_run_info.data.params["model_type"],
+        "class_labels": [str(label) for label in sorted(y.unique())],
+        "mlflow_run_id": best_run_id,
+        "dataset_id": args.dataset_id,
+        "dataset_sha256": actual_sha256,
+    }
+
+    for key, value in metadata.items():
+        output_model.set_metadata(key, value)
+
+    print("Метаданные модели сохранены.")
+    print("ClearML Model ID:", output_model.id)
+
+    # Публикуем модель
+    output_model.publish()
+
+    print("Модель опубликована.")
+
+    # Завершаем ClearML Task
+    clearml_task.close()
+
+    print("ClearML Task завершена.")
+    print("Task ID:", clearml_task.id)
+    print("Model ID:", output_model.id)
+
 
     print("\nTest metrics:")
     for name, value in test_metrics.items():

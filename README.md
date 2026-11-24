@@ -191,7 +191,7 @@ poetry run python run_experiments.py \
 Для просмотра экспериментов локально:
 
 ```bash
-poetry run mlflow ui --backend-store-uri sqlite:///mlflow.db
+poetry run mlflow ui --backend-store-uri sqlite:///mlflow.db --host 127.0.0.1 --port 5000
 ```
 
 Интерфейс MLflow доступен по адресу `http://127.0.0.1:5000`.
