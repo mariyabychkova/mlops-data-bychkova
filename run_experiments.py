@@ -7,7 +7,7 @@ import mlflow
 import mlflow.sklearn
 import pandas as pd
 import sklearn
-
+from mlflow.tracking import MlflowClient
 from clearml import Dataset
 from mlflow.models import infer_signature
 
@@ -262,6 +262,87 @@ def run_all_experiments(
 
     return created_run_ids, trained_models
 
+def verify_run_logging(client, run_id, dataset_id, dataset_sha256):
+    run = client.get_run(run_id)
+
+    params = run.data.params
+    metrics = run.data.metrics
+    tags = run.data.tags
+
+    errors = []
+
+    # Проверяем обязательные метрики
+    required_metrics = [
+        "accuracy",
+        "precision_weighted",
+        "recall_weighted",
+        "f1_weighted",
+        "training_seconds",
+    ]
+
+    for metric in required_metrics:
+        if metric not in metrics:
+            errors.append(f"Нет метрики: {metric}")
+
+    # Проверяем обязательные теги
+    required_tags = {
+        "model_family",
+        "dataset_id",
+        "dataset_sha256",
+    }
+
+    for tag in required_tags:
+        if tag not in tags:
+            errors.append(f"Нет тега: {tag}")
+
+    # Проверяем значения тегов датасета
+    if tags.get("dataset_id") != dataset_id:
+        errors.append("Неверный dataset_id")
+
+    if tags.get("dataset_sha256") != dataset_sha256:
+        errors.append("Неверный dataset_sha256")
+
+    # Проверяем параметры в зависимости от семейства модели
+    family = tags.get("model_family")
+
+    if family == "logistic_regression":
+        required_params = [
+            "model_type",
+            "C",
+            "solver",
+            "max_iter",
+            "random_state",
+        ]
+    elif family == "random_forest":
+        required_params = [
+            "model_type",
+            "n_estimators",
+            "max_depth",
+            "min_samples_split",
+            "random_state",
+        ]
+    else:
+        errors.append(f"Неизвестное семейство модели: {family}")
+        required_params = []
+
+    for param in required_params:
+        if param not in params:
+            errors.append(f"Нет параметра: {param}")
+
+    # Проверяем, что модель действительно сохранена и загружается
+    try:
+        model_uri = f"runs:/{run_id}/model"
+        mlflow.sklearn.load_model(model_uri)
+    except Exception as error:
+        errors.append(
+            f"Не удалось загрузить модель из MLflow: {error}"
+        )
+
+    if errors:
+        return False, errors
+
+    return True, []
+
 
 def main():
     args = parse_args()
@@ -273,6 +354,7 @@ def main():
     )
 
     mlflow.set_tracking_uri(tracking_uri)
+    client = MlflowClient()
 
     print("Python:", __import__("sys").version)
     print("MLflow:", mlflow.__version__)
@@ -386,6 +468,22 @@ def main():
         raise RuntimeError(
             f"Ожидалось 6 завершённых запусков, получено: {len(runs_df)}"
         )
+
+    # Проверяем полноту логирования каждого запуска
+    for run_id in created_run_ids:
+        is_valid, errors = verify_run_logging(
+        client=client,
+        run_id=run_id,
+        dataset_id=args.dataset_id,
+        dataset_sha256=actual_sha256,
+    )
+
+    if not is_valid:
+        raise RuntimeError(
+            f"Ошибка проверки run {run_id}: {errors}"
+        )
+
+    print(f"Run {run_id}: проверка логирования пройдена.")
 
     # Выбираем лучшую модель по validation F1
     best_run = runs_df.sort_values(
